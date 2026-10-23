@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a2c1b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="CleanKart: Catch Rush — a full-screen packaging-catching arcade game." />
+  <title>CleanKart: Catch Rush</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --green: #1a5c3a;
+      --deep: #0a2c1b;
+      --deeper: #061e13;
+      --lime: #d5f36a;
+      --lime-dim: #a9ce47;
+      --paper: #f4f8ec;
+      --muted: #99b5a2;
+      --red: #ff6f79;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--deep); }
+    body {
+      position: fixed; inset: 0; overscroll-behavior: none; touch-action: none;
+      color: var(--paper); -webkit-font-smoothing: antialiased;
+      font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, sans-serif;
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    }
+    button { color: inherit; font: inherit; -webkit-tap-highlight-color: transparent; }
+    button:focus-visible { outline: 3px solid var(--lime); outline-offset: 3px; }
+
+    .game-shell {
+      position: relative; display: flex; flex-direction: column;
+      width: 100%; max-width: 680px; height: 100vh; height: 100svh; height: 100dvh;
+      margin: 0 auto; overflow: hidden; isolation: isolate;
+      background: var(--deep);
+      padding-top: var(--safe-top); padding-bottom: var(--safe-bottom);
+    }
+    .game-shell::before {
+      content: ""; position: absolute; inset: 0; z-index: -3; pointer-events: none;
+      background: radial-gradient(ellipse at 50% 22%, #1b5535 0%, #103b26 42%, #082819 100%);
+    }
+
+    /* Small, game-like HUD: no cards surrounding the playfield. */
+    .hud { position: relative; z-index: 4; flex: 0 0 auto; padding: 10px 13px 9px; background: linear-gradient(180deg, rgba(4,23,14,.94), rgba(7,37,22,.82)); border-bottom: 1px solid rgba(213,243,106,.15); box-shadow: 0 7px 24px rgba(0,0,0,.13); }
+    .hud-top { min-height: 40px; display: flex; align-items: center; gap: 8px; }
+    .brand { min-width: 0; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+    .brand-mark { width: 35px; height: 35px; flex: 0 0 35px; display: grid; place-items: center; border-radius: 12px; color: var(--deep); background: var(--lime); font-size: 22px; box-shadow: 0 3px 0 #7fa52e; }
+    .brand-copy { min-width: 0; }
+    .brand-name { margin: 0; font-size: clamp(15px, 4.4vw, 19px); line-height: 1; font-weight: 1000; letter-spacing: -.65px; white-space: nowrap; }
+    .brand-name span { color: var(--lime); }
+    .brand-sub { margin-top: 4px; color: #94b6a0; font-size: 8px; line-height: 1; font-weight: 900; letter-spacing: 1.7px; }
+    .icon-button { flex: 0 0 39px; width: 39px; height: 39px; display: grid; place-items: center; border: 1px solid rgba(213,243,106,.25); border-radius: 12px; background: rgba(255,255,255,.065); color: var(--lime); font-size: 17px; cursor: pointer; touch-action: manipulation; }
+    .icon-button:active { transform: scale(.95); background: rgba(213,243,106,.15); }
+    .qr-button { grid-auto-flow: column; gap: 2px; font-size: 10px; font-weight: 1000; letter-spacing: .4px; }
+    .qr-button span:first-child { font-size: 16px; }
+
+    .hud-stats { margin-top: 9px; display: grid; grid-template-columns: 1.05fr .95fr 1.1fr; align-items: center; gap: 8px; }
+    .metric { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .metric-label { color: #8aac97; font-size: 8px; font-weight: 950; letter-spacing: 1.3px; line-height: 1; }
+    .metric-value { color: white; font-size: 24px; line-height: 1.08; font-weight: 1000; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
+    .score-metric .metric-value { color: var(--lime); font-size: 29px; }
+    .time-metric .metric-value { font-size: 20px; letter-spacing: -.4px; }
+    .lives-metric { align-items: flex-end; }
+    .hearts { display: flex; justify-content: flex-end; align-items: center; gap: 3px; height: 27px; }
+    .heart { color: var(--lime); font-size: 20px; line-height: 1; text-shadow: 0 2px 9px #d5f36a26; transition: opacity .15s, transform .15s, color .15s; }
+    .heart.lost { opacity: .18; color: #b1c3b5; transform: scale(.82); text-shadow: none; }
+    .hud-bottom { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+    .level-label { min-width: 63px; color: var(--lime); font-size: 8px; font-weight: 1000; letter-spacing: 1px; white-space: nowrap; }
+    .level-track { flex: 1; height: 4px; border-radius: 100px; background: rgba(255,255,255,.13); overflow: hidden; }
+    .level-fill { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #87ba38, var(--lime)); box-shadow: 0 0 12px #d5f36a55; }
+    .level-next { min-width: 49px; text-align: right; color: #799c86; font-size: 8px; font-weight: 900; letter-spacing: .5px; }
+
+    .arena { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; isolation: isolate; touch-action: none; }
+    .arena::before { content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none; opacity: .26; background-image: radial-gradient(rgba(213,243,106,.21) .75px, transparent .75px); background-size: 19px 19px; mask-image: linear-gradient(180deg, #000 0%, transparent 92%); }
+    .arena::after { content: ""; position: absolute; z-index: -2; left: 0; right: 0; bottom: 0; height: 27%; background: linear-gradient(180deg, transparent, rgba(2,20,11,.34)); pointer-events: none; }
+    .glow { position: absolute; z-index: -2; width: min(67vw, 320px); aspect-ratio: 1; border-radius: 50%; top: 17%; left: 50%; transform: translateX(-50%); background: radial-gradient(circle, rgba(160,218,79,.13) 0%, rgba(92,164,63,.055) 46%, transparent 72%); pointer-events: none; }
+    .orbit { position: absolute; z-index: -1; width: 72%; height: 73%; left: 14%; top: 11%; border: 1px solid rgba(213,243,106,.045); border-radius: 50%; transform: perspective(320px) rotateX(68deg); pointer-events: none; }
+    .orbit::before, .orbit::after { content: ""; position: absolute; inset: 15%; border: 1px solid rgba(213,243,106,.045); border-radius: 50%; }
+    .orbit::after { inset: 31%; }
+    .field-label { position: absolute; top: 14px; left: 15px; display: flex; align-items: center; gap: 7px; color: rgba(218,243,193,.53); font-size: 8px; font-weight: 950; letter-spacing: 1.6px; pointer-events: none; }
+    .field-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 10px #d5f36a75; }
+    .lane { position: absolute; top: 4%; bottom: 7%; width: 1px; background: linear-gradient(180deg, transparent, rgba(213,243,106,.12) 24%, rgba(213,243,106,.06) 78%, transparent); pointer-events: none; }
+    .lane.one { left: 25%; } .lane.two { left: 50%; } .lane.three { left: 75%; }
+    .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 45px; border-top: 1px solid rgba(213,243,106,.12); background: linear-gradient(180deg, rgba(213,243,106,.045), rgba(3,22,12,.23)); pointer-events: none; }
+    .floor::after { content: ""; position: absolute; left: 8%; right: 8%; top: 10px; height: 1px; background: rgba(213,243,106,.1); }
+
+    .package { position: absolute; left: 0; top: 0; z-index: 2; width: 49px; height: 49px; display: grid; place-items: center; border-radius: 15px; background: linear-gradient(150deg, #fffef5, #e7f1d9); border: 1px solid rgba(255,255,255,.65); box-shadow: 0 5px 0 rgba(5,35,19,.25), 0 8px 18px rgba(0,0,0,.2); font-size: 30px; line-height: 1; will-change: transform; pointer-events: none; }
+    .package.caught { animation: package-pop .2s ease-out forwards; }
+    @keyframes package-pop { 0% { opacity: 1; scale: 1; } 60% { opacity: .95; scale: 1.3; } 100% { opacity: 0; scale: .3; } }
+    .catch-spark { position: absolute; z-index: 5; color: var(--lime); font-size: 18px; font-weight: 1000; text-shadow: 0 2px 8px #0004; pointer-events: none; animation: spark-up .46s ease-out forwards; }
+    @keyframes spark-up { from { opacity: 1; transform: translateY(0) scale(.7); } to { opacity: 0; transform: translateY(-34px) scale(1.35); } }
+    .cart-zone { position: absolute; z-index: 3; left: 0; right: 0; bottom: 21px; height: 79px; pointer-events: none; }
+    .cart-shadow { position: absolute; bottom: -1px; width: 79px; height: 11px; border-radius: 50%; background: rgba(0,0,0,.3); transform: translateX(-50%); transition: left .035s linear; }
+    .cart { position: absolute; bottom: 0; width: 91px; height: 75px; display: flex; align-items: center; justify-content: center; transform: translateX(-50%); filter: drop-shadow(0 6px 0 rgba(0,0,0,.2)); transition: left .035s linear; }
+    .cart-face { font-size: 58px; line-height: 1; transform: scaleX(-1); }
+    .cart-badge { position: absolute; top: -1px; right: -1px; min-width: 23px; height: 23px; padding: 0 5px; display: grid; place-items: center; border-radius: 100px; border: 2px solid #0e3b25; background: var(--lime); color: var(--deep); font-size: 10px; font-weight: 1000; box-shadow: 0 2px 8px #0003; }
+    .cart-zone.catch-bounce .cart-face { animation: cart-bounce .22s ease-out; }
+    @keyframes cart-bounce { 0%,100% { translate: 0 0; } 45% { translate: 0 -8px; } }
+    .arena.life-hit { animation: life-flash .24s linear; }
+    @keyframes life-flash { 0%,100% { box-shadow: inset 0 0 0 transparent; } 35% { box-shadow: inset 0 0 65px rgba(255,65,79,.43); } }
+    .pause-small { position: absolute; z-index: 1; bottom: 15px; left: 15px; color: rgba(213,243,106,.35); font-size: 8px; font-weight: 850; letter-spacing: .7px; pointer-events: none; }
+
+    .overlay { position: absolute; z-index: 10; inset: 0; display: grid; place-items: center; padding: 22px; background: rgba(3,20,12,.79); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .overlay[hidden] { display: none !important; }
+    .modal { width: min(100%, 330px); padding: 24px 22px 21px; border: 1px solid rgba(213,243,106,.24); border-radius: 27px; text-align: center; background: linear-gradient(155deg, #17492e, #0b2c1c 76%); box-shadow: 0 23px 80px rgba(0,0,0,.45), inset 0 1px rgba(255,255,255,.055); animation: modal-in .24s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes modal-in { from { opacity: 0; transform: translateY(9px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .modal-logo { width: 76px; height: 76px; margin: 0 auto 15px; display: grid; place-items: center; border-radius: 23px; background: var(--lime); color: var(--deep); font-size: 47px; box-shadow: 0 5px 0 #85ad33; transform: rotate(-3deg); }
+    .modal-kicker { margin: 0 0 7px; color: var(--lime); font-size: 9px; font-weight: 1000; letter-spacing: 2.3px; text-transform: uppercase; }
+    .modal h1 { margin: 0; color: #fff; font-size: clamp(27px, 8vw, 35px); font-weight: 1000; line-height: 1; letter-spacing: -1.4px; }
+    .modal h1 span { color: var(--lime); }
+    .modal-copy { max-width: 260px; margin: 12px auto 17px; color: #b2cbb9; font-size: 12px; line-height: 1.55; font-weight: 600; }
+    .instruction-row { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+    .instruction-chip { padding: 7px 9px; border: 1px solid rgba(213,243,106,.16); border-radius: 999px; background: rgba(213,243,106,.065); color: #d1e5d1; font-size: 10px; font-weight: 850; }
+    .primary-button { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 16px; background: var(--lime); color: var(--deeper); font-size: 14px; font-weight: 1000; box-shadow: 0 4px 0 #86ad31, 0 10px 22px rgba(0,0,0,.18); cursor: pointer; touch-action: manipulation; }
+    .primary-button:active { transform: translateY(2px); box-shadow: 0 2px 0 #86ad31; }
+    .secondary-button { width: 100%; min-height: 43px; margin-top: 9px; border: 1px solid rgba(255,255,255,.13); border-radius: 14px; background: rgba(255,255,255,.045); color: #d9e8d7; font-size: 12px; font-weight: 850; cursor: pointer; touch-action: manipulation; }
+    .modal-foot { margin: 13px 0 0; color: #789a83; font-size: 9px; font-weight: 850; letter-spacing: .5px; }
+    .final-score { display: flex; justify-content: center; align-items: baseline; gap: 8px; margin: 17px auto 19px; color: var(--lime); font-size: 40px; font-weight: 1000; line-height: 1; font-variant-numeric: tabular-nums; }
+    .final-score small { color: #a8c6af; font-size: 10px; letter-spacing: 1.2px; }
+
+    .qr-modal { width: min(100%, 340px); padding: 22px 19px 18px; text-align: center; border: 1px solid rgba(213,243,106,.25); border-radius: 25px; background: #f4f8ec; color: var(--deep); box-shadow: 0 23px 80px rgba(0,0,0,.45); }
+    .qr-modal h2 { margin: 0; font-size: 21px; letter-spacing: -.5px; line-height: 1.1; }
+    .qr-modal p { margin: 8px auto 14px; color: #55755e; font-size: 11px; font-weight: 650; line-height: 1.45; }
+    .qr-image { display: block; width: min(100%, 250px); aspect-ratio: 1; object-fit: contain; margin: 0 auto 14px; border-radius: 13px; }
+    .qr-dismiss { width: 100%; min-height: 46px; border: 0; border-radius: 14px; background: var(--green); color: white; font-size: 13px; font-weight: 950; cursor: pointer; touch-action: manipulation; }
+
+    @media (max-width: 350px) {
+      .hud { padding-left: 9px; padding-right: 9px; }
+      .hud-top { gap: 5px; }
+      .brand { gap: 6px; }
+      .brand-mark { width: 31px; height: 31px; flex-basis: 31px; font-size: 19px; }
+      .brand-name { font-size: 15px; }
+      .icon-button { width: 34px; height: 36px; flex-basis: 34px; border-radius: 10px; }
+      .hud-stats { gap: 5px; }
+      .score-metric .metric-value { font-size: 26px; }
+      .time-metric .metric-value { font-size: 18px; }
+      .heart { font-size: 18px; }
+      .metric-label { font-size: 7px; letter-spacing: 1px; }
+      .level-label { min-width: 56px; font-size: 7px; }
+      .level-next { min-width: 44px; font-size: 7px; }
+    }
+    @media (max-height: 660px) {
+      .hud { padding-top: max(5px, var(--safe-top)); padding-bottom: 6px; }
+      .brand-mark { width: 29px; height: 29px; flex-basis: 29px; font-size: 18px; }
+      .hud-top { min-height: 32px; }
+      .icon-button { height: 32px; width: 34px; flex-basis: 34px; }
+      .hud-stats { margin-top: 5px; }
+      .metric-value { font-size: 20px; }
+      .score-metric .metric-value { font-size: 24px; }
+      .time-metric .metric-value { font-size: 18px; }
+      .hearts { height: 22px; }
+      .heart { font-size: 17px; }
+      .hud-bottom { margin-top: 5px; }
+      .cart-zone { bottom: 13px; }
+      .field-label { top: 9px; }
+      .modal { padding: 18px 18px 16px; }
+      .modal-logo { width: 60px; height: 60px; border-radius: 18px; font-size: 37px; margin-bottom: 11px; }
+      .modal-copy { margin: 9px auto 12px; }
+      .instruction-row { margin-bottom: 12px; }
+      .primary-button { min-height: 45px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="game-shell" id="gameShell">
+    <header class="hud" aria-label="Game HUD">
+      <div class="hud-top">
+        <div class="brand" aria-label="CleanKart Catch Rush">
+          <div class="brand-mark" aria-hidden="true">♻️</div>
+          <div class="brand-copy"><div class="brand-name">Clean<span>Kart</span></div><div class="brand-sub">CATCH RUSH</div></div>
+        </div>
+        <button class="icon-button qr-button" id="qrButton" type="button" aria-label="Show QR code placeholder"><span aria-hidden="true">▦</span><span>QR</span></button>
+        <button class="icon-button" id="pauseButton" type="button" aria-label="Pause game">Ⅱ</button>
+      </div>
+      <div class="hud-stats">
+        <div class="metric score-metric"><span class="metric-label">SAVED</span><span class="metric-value" id="score">0</span></div>
+        <div class="metric time-metric"><span class="metric-label">RUN TIME</span><span class="metric-value" id="timer">00:00</span></div>
+        <div class="metric lives-metric"><span class="metric-label" id="livesLabel">LIVES · 3/3</span><div class="hearts" id="hearts" aria-label="3 lives remaining"><span class="heart">♥</span><span class="heart">♥</span><span class="heart">♥</span></div></div>
+      </div>
+      <div class="hud-bottom">
+        <span class="level-label" id="levelLabel">RUSH LV 1</span>
+        <div class="level-track" role="progressbar" aria-label="Progress to next rush level" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" id="levelTrack"><div class="level-fill" id="levelFill"></div></div>
+        <span class="level-next" id="levelNext">NEXT · 10</span>
+      </div>
+    </header>
+
+    <section class="arena" id="arena" aria-label="Playfield. Drag the cart to catch falling packages. Each missed package costs one life.">
+      <div class="glow" aria-hidden="true"></div><div class="orbit" aria-hidden="true"></div>
+      <div class="lane one" aria-hidden="true"></div><div class="lane two" aria-hidden="true"></div><div class="lane three" aria-hidden="true"></div>
+      <div class="field-label"><span class="field-dot"></span><span id="fieldStatus">PICKUP ZONE · STAY SHARP</span></div>
+      <div id="packages" aria-hidden="true"></div>
+      <div class="cart-zone" id="cartZone" aria-hidden="true"><div class="cart-shadow" id="cartShadow"></div><div class="cart" id="cart"><div class="cart-face">🛒</div><div class="cart-badge" id="cartBadge">0</div></div></div>
+      <div class="floor" aria-hidden="true"></div>
+      <div class="pause-small" id="dragHint" aria-hidden="true">DRAG TO MOVE</div>
+    </section>
+
+    <div class="overlay" id="gameOverlay">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalCopy">
+        <div class="modal-logo" id="modalLogo" aria-hidden="true">♻️</div>
+        <p class="modal-kicker" id="modalKicker">CLEAN KART ARCADE</p>
+        <h1 id="modalTitle">Catch the <span>rush.</span></h1>
+        <p class="modal-copy" id="modalCopy">Catch the falling packages. Every one you miss costs a life. The rush gets faster as your score climbs.</p>
+        <div class="instruction-row" id="instructionRow"><span class="instruction-chip">☝️ Drag to move</span><span class="instruction-chip">📦 Catch packages</span><span class="instruction-chip">♥ 3 lives</span></div>
+        <div class="final-score" id="finalScore" hidden><span id="finalScoreNumber">0</span><small>PACKAGES SAVED</small></div>
+        <button class="primary-button" id="mainAction" type="button">Start run <span aria-hidden="true">→</span></button>
+        <button class="secondary-button" id="secondaryAction" type="button" hidden>Try again</button>
+        <p class="modal-foot" id="modalFoot">ONE THUMB · THREE LIVES · HOW LONG CAN YOU LAST?</p>
+      </div>
+    </div>
+
+    <div class="overlay" id="qrOverlay" hidden>
+      <div class="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" aria-describedby="qrCopy">
+        <h2 id="qrTitle">Scan & play</h2>
+        <p id="qrCopy">The real game link goes here once the site is published. This is only a placeholder image for now.</p>
+        <img class="qr-image" id="qrImage" src="qr-placeholder.png" alt="QR placeholder image. Not a live or scannable QR code." />
+        <button class="qr-dismiss" id="qrClose" type="button">Back to game</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const itemSize = 49;
+      const startLives = 3;
+      const packageEmojis = ['📦', '📦', '🛍️', '📬', '🧃', '🧴', '🗞️', '🧻'];
+      const arena = document.getElementById('arena');
+      const packageLayer = document.getElementById('packages');
+      const cart = document.getElementById('cart');
+      const cartShadow = document.getElementById('cartShadow');
+      const cartZone = document.getElementById('cartZone');
+      const cartBadge = document.getElementById('cartBadge');
+      const scoreEl = document.getElementById('score');
+      const timerEl = document.getElementById('timer');
+      const hearts = [...document.querySelectorAll('.heart')];
+      const livesLabel = document.getElementById('livesLabel');
+      const levelFill = document.getElementById('levelFill');
+      const levelTrack = document.getElementById('levelTrack');
+      const levelLabel = document.getElementById('levelLabel');
+      const levelNext = document.getElementById('levelNext');
+      const overlay = document.getElementById('gameOverlay');
+      const modalLogo = document.getElementById('modalLogo');
+      const modalKicker = document.getElementById('modalKicker');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalCopy = document.getElementById('modalCopy');
+      const instructionRow = document.getElementById('instructionRow');
+      const finalScore = document.getElementById('finalScore');
+      const finalScoreNumber = document.getElementById('finalScoreNumber');
+      const mainAction = document.getElementById('mainAction');
+      const secondaryAction = document.getElementById('secondaryAction');
+      const modalFoot = document.getElementById('modalFoot');
+      const pauseButton = document.getElementById('pauseButton');
+      const qrButton = document.getElementById('qrButton');
+      const qrOverlay = document.getElementById('qrOverlay');
+      const qrClose = document.getElementById('qrClose');
+      const fieldStatus = document.getElementById('fieldStatus');
+      const dragHint = document.getElementById('dragHint');
+
+      let gameState = 'ready';
+      let score = 0;
+      let lives = startLives;
+      let cartX = 0;
+      let items = [];
+      let lastFrame = 0;
+      let elapsed = 0;
+      let spawnClock = 0;
+      let fieldWidth = 0;
+      let fieldHeight = 0;
+      let animationId = 0;
+      let pointerHeld = false;
+      let resumeAfterQr = false;
+
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const rand = (min, max) => min + Math.random() * (max - min);
+
+      function measureArena() {
+        const rect = arena.getBoundingClientRect();
+        fieldWidth = rect.width;
+        fieldHeight = rect.height;
+        if (!cartX || cartX > fieldWidth) cartX = fieldWidth / 2;
+        setCartX(cartX);
+      }
+
+      function setCartX(x) {
+        const halfCart = 45;
+        cartX = clamp(x, halfCart, Math.max(halfCart, fieldWidth - halfCart));
+        cart.style.left = `${cartX}px`;
+        cartShadow.style.left = `${cartX}px`;
+      }
+
+      function moveCartFromPointer(clientX) {
+        const rect = arena.getBoundingClientRect();
+        setCartX(clientX - rect.left);
+      }
+
+      function formatTime(seconds) {
+        const whole = Math.floor(seconds);
+        const minutes = Math.floor(whole / 60);
+        const remainder = whole % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+      }
+
+      function getLevel() { return 1 + Math.floor(score / 10); }
+
+      function renderStats() {
+        scoreEl.textContent = String(score);
+        cartBadge.textContent = String(score);
+        timerEl.textContent = formatTime(elapsed);
+        livesLabel.textContent = `LIVES · ${lives}/${startLives}`;
+        hearts.forEach((heart, index) => heart.classList.toggle('lost', index >= lives));
+        const progress = score % 10;
+        levelFill.style.width = `${progress * 10}%`;
+        levelTrack.setAttribute('aria-valuenow', String(progress));
+        levelLabel.textContent = `RUSH LV ${getLevel()}`;
+        levelNext.textContent = `NEXT · ${10 - progress || 10}`;
+      }
+
+      function makePackage() {
+        const element = document.createElement('div');
+        element.className = 'package';
+        element.textContent = packageEmojis[Math.floor(Math.random() * packageEmojis.length)];
+        const x = rand(itemSize / 2 + 5, Math.max(itemSize / 2 + 5, fieldWidth - itemSize / 2 - 5));
+        const level = getLevel();
+        const speed = rand(150, 190) + Math.min((level - 1) * 21, 155) + Math.min(elapsed * .12, 35);
+        const item = { element, x, y: -itemSize - rand(0, 70), speed, caught: false };
+        element.style.transform = `translate3d(${x - itemSize / 2}px, ${item.y}px, 0)`;
+        packageLayer.appendChild(element);
+        items.push(item);
+      }
+
+      function sparkleAt(x, y) {
+        const spark = document.createElement('div');
+        spark.className = 'catch-spark';
+        spark.textContent = ['✦', '+1', '🌿'][Math.floor(Math.random() * 3)];
+        spark.style.left = `${x - 8}px`;
+        spark.style.top = `${y - 9}px`;
+        if (spark.textContent === '+1') { spark.style.fontSize = '14px'; }
+        packageLayer.appendChild(spark);
+        window.setTimeout(() => spark.remove(), 500);
+      }
+
+      function removePackage(item) {
+        item.element.remove();
+        const index = items.indexOf(item);
+        if (index !== -1) items.splice(index, 1);
+      }
+
+      function catchPackage(item) {
+        if (item.caught || gameState !== 'playing') return;
+        item.caught = true;
+        score += 1;
+        item.element.classList.add('caught');
+        sparkleAt(item.x, Math.min(item.y, fieldHeight - 100));
+        cartZone.classList.remove('catch-bounce');
+        void cartZone.offsetWidth;
+        cartZone.classList.add('catch-bounce');
+        if (navigator.vibrate) navigator.vibrate(10);
+        renderStats();
+        window.setTimeout(() => item.element.remove(), 210);
+      }
+
+      function loseLife(item) {
+        if (item.missed || gameState !== 'playing') return;
+        item.missed = true;
+        lives = Math.max(0, lives - 1);
+        arena.classList.remove('life-hit');
+        void arena.offsetWidth;
+        arena.classList.add('life-hit');
+        renderStats();
+        removePackage(item);
+        if (navigator.vibrate) navigator.vibrate([18, 35, 18]);
+        if (lives <= 0) endGame();
+      }
+
+      function cleanField() {
+        cancelAnimationFrame(animationId);
+        items.forEach(item => item.element.remove());
+        packageLayer.querySelectorAll('.catch-spark').forEach(spark => spark.remove());
+        items = [];
+      }
+
+      function setOverlayScreen(screen) {
+        overlay.hidden = false;
+        instructionRow.hidden = true;
+        finalScore.hidden = true;
+        secondaryAction.hidden = true;
+        if (screen === 'ready') {
+          modalLogo.textContent = '♻️';
+          modalKicker.textContent = 'CLEANKART ARCADE';
+          modalTitle.innerHTML = 'Catch the <span>rush.</span>';
+          modalCopy.textContent = 'Catch the falling packages. Every one you miss costs a life. The rush gets faster as your score climbs.';
+          instructionRow.hidden = false;
+          mainAction.innerHTML = 'Start run <span aria-hidden="true">→</span>';
+          modalFoot.textContent = 'ONE THUMB · THREE LIVES · HOW LONG CAN YOU LAST?';
+        } else if (screen === 'paused') {
+          modalLogo.textContent = 'Ⅱ';
+          modalKicker.textContent = 'TAKE A BREATHER';
+          modalTitle.textContent = 'Game paused';
+          modalCopy.textContent = `You've saved ${score} package${score === 1 ? '' : 's'} so far. Ready to jump back in?`;
+          mainAction.innerHTML = 'Resume run <span aria-hidden="true">▶</span>';
+          secondaryAction.hidden = false;
+          secondaryAction.textContent = 'Restart run';
+          modalFoot.textContent = 'YOUR RUN IS PAUSED';
+        } else if (screen === 'over') {
+          modalLogo.textContent = '📦';
+          modalKicker.textContent = 'RUN COMPLETE';
+          modalTitle.innerHTML = 'Rush <span>over.</span>';
+          modalCopy.textContent = 'The packages got away this time. Take a breath, then jump back in and beat your score.';
+          finalScore.hidden = false;
+          finalScoreNumber.textContent = String(score);
+          mainAction.innerHTML = 'Run it back <span aria-hidden="true">↻</span>';
+          modalFoot.textContent = `YOU LASTED ${formatTime(elapsed)} · CLEAN KART CREW`; 
+        }
+      }
+
+      function startGame() {
+        cleanField();
+        score = 0;
+        lives = startLives;
+        elapsed = 0;
+        spawnClock = 0;
+        lastFrame = 0;
+        gameState = 'playing';
+        measureArena();
+        setCartX(fieldWidth / 2);
+        renderStats();
+        overlay.hidden = true;
+        fieldStatus.textContent = 'PICKUP ZONE · STAY SHARP';
+        dragHint.textContent = 'DRAG TO MOVE';
+        pauseButton.textContent = 'Ⅱ';
+        pauseButton.setAttribute('aria-label', 'Pause game');
+        animationId = requestAnimationFrame(gameLoop);
+      }
+
+      function endGame() {
+        gameState = 'over';
+        cancelAnimationFrame(animationId);
+        pointerHeld = false;
+        setOverlayScreen('over');
+        fieldStatus.textContent = 'RUN COMPLETE';
+        pauseButton.textContent = '↻';
+        pauseButton.setAttribute('aria-label', 'Start another run');
+      }
+
+      function pauseGame() {
+        if (gameState === 'playing') {
+          gameState = 'paused';
+          cancelAnimationFrame(animationId);
+          pointerHeld = false;
+          setOverlayScreen('paused');
+          fieldStatus.textContent = 'PAUSED · TAKE A BREATHER';
+          pauseButton.textContent = '▶';
+          pauseButton.setAttribute('aria-label', 'Resume game');
+        } else if (gameState === 'paused') {
+          resumeGame();
+        } else if (gameState === 'over') {
+          startGame();
+        }
+      }
+
+      function resumeGame() {
+        gameState = 'playing';
+        overlay.hidden = true;
+        lastFrame = 0;
+        fieldStatus.textContent = 'PICKUP ZONE · STAY SHARP';
+        pauseButton.textContent = 'Ⅱ';
+        pauseButton.setAttribute('aria-label', 'Pause game');
+        animationId = requestAnimationFrame(gameLoop);
+      }
+
+      function gameLoop(timestamp) {
+        if (gameState !== 'playing') return;
+        if (!lastFrame) lastFrame = timestamp;
+        const delta = Math.min((timestamp - lastFrame) / 1000, 0.04);
+        lastFrame = timestamp;
+        elapsed += delta;
+        spawnClock += delta;
+
+        const level = getLevel();
+        const spawnInterval = Math.max(0.43, 0.98 - Math.min((level - 1) * 0.075, 0.43) - Math.min(elapsed * .0005, .08));
+        if (spawnClock >= spawnInterval) {
+          spawnClock = 0;
+          makePackage();
+        }
+
+        const cartCatchY = fieldHeight - 78;
+        for (let i = items.length - 1; i >= 0; i -= 1) {
+          const item = items[i];
+          if (item.caught) {
+            if (!item.element.isConnected) items.splice(i, 1);
+            continue;
+          }
+          item.y += item.speed * delta;
+          item.element.style.transform = `translate3d(${item.x - itemSize / 2}px, ${item.y}px, 0)`;
+          const itemCenterY = item.y + itemSize / 2;
+          const verticalHit = Math.abs(itemCenterY - cartCatchY) < 42;
+          const horizontalHit = Math.abs(item.x - cartX) < 54;
+          if (verticalHit && horizontalHit) {
+            catchPackage(item);
+          } else if (item.y > cartCatchY + 24) {
+            loseLife(item);
+            if (gameState !== 'playing') return;
+          }
+        }
+        renderStats();
+        animationId = requestAnimationFrame(gameLoop);
+      }
+
+      arena.addEventListener('pointerdown', event => {
+        if (gameState !== 'playing') return;
+        pointerHeld = true;
+        moveCartFromPointer(event.clientX);
+        try { arena.setPointerCapture(event.pointerId); } catch (_) { /* Optional browser feature. */ }
+      });
+      arena.addEventListener('pointermove', event => {
+        if (gameState === 'playing' && (pointerHeld || event.pointerType === 'mouse')) moveCartFromPointer(event.clientX);
+      });
+      arena.addEventListener('pointerup', () => { pointerHeld = false; });
+      arena.addEventListener('pointercancel', () => { pointerHeld = false; });
+      arena.addEventListener('lostpointercapture', () => { pointerHeld = false; });
+
+      window.addEventListener('keydown', event => {
+        if (event.key === 'Escape' || event.key.toLowerCase() === 'p') {
+          if (!qrOverlay.hidden) { event.preventDefault(); closeQr(); return; }
+          if (gameState === 'playing' || gameState === 'paused') { event.preventDefault(); pauseGame(); }
+          return;
+        }
+        if (gameState !== 'playing') return;
+        const key = event.key.toLowerCase();
+        if (key === 'arrowleft' || key === 'a') { event.preventDefault(); setCartX(cartX - 32); }
+        else if (key === 'arrowright' || key === 'd') { event.preventDefault(); setCartX(cartX + 32); }
+      });
+
+      function openQr() {
+        resumeAfterQr = gameState === 'playing';
+        if (resumeAfterQr) {
+          gameState = 'paused';
+          cancelAnimationFrame(animationId);
+          pointerHeld = false;
+        }
+        qrOverlay.hidden = false;
+      }
+      function closeQr() {
+        qrOverlay.hidden = true;
+        if (resumeAfterQr) {
+          resumeAfterQr = false;
+          resumeGame();
+        }
+      }
+
+      mainAction.addEventListener('click', () => {
+        if (gameState === 'paused') resumeGame();
+        else startGame();
+      });
+      secondaryAction.addEventListener('click', startGame);
+      pauseButton.addEventListener('click', pauseGame);
+      qrButton.addEventListener('click', openQr);
+      qrClose.addEventListener('click', closeQr);
+      qrOverlay.addEventListener('click', event => { if (event.target === qrOverlay) closeQr(); });
+      window.addEventListener('resize', measureArena, { passive: true });
+      window.addEventListener('orientationchange', () => window.setTimeout(measureArena, 120), { passive: true });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && gameState === 'playing') {
+          gameState = 'paused';
+          cancelAnimationFrame(animationId);
+          setOverlayScreen('paused');
+          pauseButton.textContent = '▶';
+          pauseButton.setAttribute('aria-label', 'Resume game');
+        }
+      });
+
+      measureArena();
+      renderStats();
+      setOverlayScreen('ready');
+    })();
+  </script>
+</body>
+</html>
